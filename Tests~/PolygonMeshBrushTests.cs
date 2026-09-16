@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -9,6 +10,7 @@ using RealtimeCSG;
 using RealtimeCSG.Components;
 using RealtimeCSG.Foundation;
 using RealtimeCSG.Legacy;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -97,10 +99,10 @@ public class PolygonMeshBrushTests
         }
     }
 
-    internal static double Volume(CSGModel model)
+    internal static double Volume(CSGModel model, bool forceRebuild = true)
     {
         CSGModelManager.EnsureBuildFinished();
-        CSGModelManager.ForceRebuild();
+        if (forceRebuild) CSGModelManager.ForceRebuild();
         var objects = CSGModelManager.GetModelMeshes(model);
         Assert.That(objects.Length, Is.GreaterThan(0), "Native RealtimeCSG must generate render meshes");
         double volume6 = 0;
@@ -327,6 +329,73 @@ public class PolygonMeshBrushTests
         LogAssert.Expect(LogType.Warning,new Regex("Cannot create RealtimeCSG brush"));
         Assert.That(ExternalRealtimeCSG.CreateBrushFromPolygonMesh(root.transform,"Invalid",mesh),Is.Null);
         Assert.That(root.transform.childCount,Is.EqualTo(children));
+    }
+
+    [UnityTest]
+    public IEnumerator FrontPyramidDepthUndoRedoPreservesGeometry()
+    {
+        return CheckPyramidDepthUndoRedo(0, 1);
+    }
+
+    [UnityTest]
+    public IEnumerator BackPyramidDepthUndoRedoPreservesGeometry()
+    {
+        return CheckPyramidDepthUndoRedo(1, 0);
+    }
+
+    private IEnumerator CheckPyramidDepthUndoRedo(float front, float back)
+    {
+        var go = new GameObject("Pyramid undo test");
+        go.transform.SetParent(root.transform, false);
+        var target = go.AddComponent<RealtimeCSGTarget>();
+        target.materials = new[] { material };
+        typeof(RealtimeCSGTarget).GetField("targetMode", BindingFlags.NonPublic | BindingFlags.Instance)
+            .SetValue(target, RealtimeCSGTargetMode.ScaledExtrude);
+        target.scaledExtrudeDistance = 2;
+        target.scaledExtrudeFrontScale = Vector2.one * front;
+        target.scaledExtrudeBackScale = Vector2.one * back;
+        target.OnShapeEditorUpdateProject(new Project());
+        double originalVolume = Volume(model, false);
+        Assert.That(originalVolume, Is.GreaterThan(0));
+        int brushCount = go.GetComponentsInChildren<CSGBrush>().Length;
+        yield return null;
+        Undo.ClearAll();
+        try
+        {
+            Undo.RecordObject(target, "Change pyramid depth");
+            target.scaledExtrudeDistance = 3;
+            target.Rebuild();
+            yield return null;
+            Assert.That(Volume(model, false), Is.EqualTo(originalVolume * 1.5).Within(0.001));
+
+            Undo.PerformUndo();
+            yield return null;
+            Assert.That(target.scaledExtrudeDistance, Is.EqualTo(2));
+            target.Rebuild();
+            Assert.That(Volume(model, false), Is.EqualTo(originalVolume).Within(0.001));
+            yield return null;
+
+            Undo.PerformRedo();
+            yield return null;
+            Assert.That(target.scaledExtrudeDistance, Is.EqualTo(3));
+            for (int i = 0; i < 10; i++)
+            {
+                target.Rebuild();
+                var brushes = go.GetComponentsInChildren<CSGBrush>();
+                Assert.That(brushes.Length, Is.EqualTo(brushCount));
+                foreach (var brush in brushes)
+                {
+                    AssertTopology(brush);
+                    foreach (var texture in brush.Shape.TexGens)
+                        Assert.That(texture.RenderMaterial, Is.SameAs(material));
+                }
+                Assert.That(Volume(model, false), Is.EqualTo(originalVolume * 1.5).Within(0.001));
+            }
+        }
+        finally
+        {
+            Undo.ClearAll();
+        }
     }
 
     [TestCase(RealtimeCSGTargetMode.FixedExtrude)]

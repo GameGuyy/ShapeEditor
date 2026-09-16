@@ -37,7 +37,7 @@ The maintainer prototype reproduction is available via `-executeMethod BountyBas
 ## Test in the editor
 
 1. Open the generated validation project with Unity 2022.3.62f2. On Apple Silicon, use the Intel editor under Rosetta so RealtimeCSG's native plugin can load.
-2. Open **Window > General > Test Runner**, choose **EditMode**, and click **Run All**. Expect 39 passing tests and no skipped tests. Run these in the disposable validation project: the fixtures replace the active scene.
+2. Open **Window > General > Test Runner**, choose **EditMode**, and click **Run All**. Expect 41 passing tests and no skipped tests. Run these in the disposable validation project: the fixtures replace the active scene.
 3. Run the demo command above, then open `Assets/PolygonMeshDemo/Demo.unity`. Inspect the prism, both pyramid directions, and the subtraction hole in Scene view. Their surfaces should be closed, with no missing faces or spikes.
 4. Open **Window > 2D Shape Editor**, create a closed shape, and choose **RealtimeCSG > Create Bevel** from the window's toolbar. Select the generated target. In its Inspector, set **Front Scale** to `(0, 0)` and **Back Scale** to `(1, 1)`, then swap them. Both should produce a closed pyramid without Console errors. Repeat with triangular and square profiles.
 5. Change the depth and face materials, click **Rebuild** repeatedly, and exercise Undo/Redo. For a spline target, move its control-point children and rebuild; the generated `Brushes` container should never become an extra control point.
@@ -48,7 +48,7 @@ The automated results are recorded in [VALIDATION.md](VALIDATION.md). Steps 4–
 
 - Real generated render-mesh volumes for prisms, both zero-scale pyramid directions, frusta, a wedge, an offset pyramid under a transformed parent, and subtraction.
 - Half-edge reciprocity, shared vertex indices, RealtimeCSG's own validator, surface normals/tangents, source immutability, materials and current texture defaults.
-- Rebuilds through all six target modes.
+- Rebuilds through all six target modes; depth Undo/Redo and ten successive rebuilds in both pyramid directions with native-volume and material checks.
 - Open, duplicate, mixed-winding, non-finite, nonplanar, concave, flat, missing and oversized inputs must create no brush GameObject.
 - Benchmarks compare the existing plane reconstruction with direct conversion on 4/16/32/64/128-sided prisms. Both paths must first pass native volume checks. Each scope uses two warm-up samples followed by seven alternating samples per path; results report medians and preserve raw samples. Destruction is outside the timed regions. Creation-only excludes subsequent native rebuild; creation-and-rebuild includes `CSGModelManager.EnsureBuildFinished`. These are editor workload timings, not player FPS measurements.
 

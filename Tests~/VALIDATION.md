@@ -1,6 +1,6 @@
 # ShapeEditor issue #3: implementation and measured evidence
 
-Validated locally on 2026-09-16. **39/39 EditMode tests pass with real RealtimeCSG; none skipped.**
+Validated locally on 2026-09-16. **41/41 EditMode tests pass with real RealtimeCSG; none skipped.**
 
 The [maintainer's reply](https://github.com/Henry00IS/ShapeEditor/issues/3#issuecomment-5671890841) asks for actual Unity/RealtimeCSG correctness and performance testing. This report records those checks.
 
@@ -27,13 +27,15 @@ The preinstalled ARM editor was used for compilation and optional-dependency che
 
 ## Correctness
 
-The [raw NUnit result](Evidence/native-tests.xml) contains **39 passed, 0 failed, 0 skipped**, from a fresh validation project. The assembly path is made project-relative; test results and timings are unchanged.
+The [raw NUnit result](Evidence/native-tests.xml) contains **41 passed, 0 failed, 0 skipped**, from the isolated validation project after cleanup. The assembly path is made project-relative; test results and timings are unchanged.
 
-Tests cover real generated render-mesh volumes, both pyramid directions (including tetrahedra), frusta, a wedge, an offset pyramid under a transformed parent, subtraction, all six target modes and rebuilding, edge connectivity, RealtimeCSG's own validator, texture defaults, per-face materials, unchanged inputs, tolerance-cell boundaries, global winding reversal, repeated closing vertices, invalid geometry and legacy index limits.
+Tests cover real generated render-mesh volumes, both pyramid directions (including tetrahedra), frusta, a wedge, an offset pyramid under a transformed parent, subtraction, all six target modes and rebuilding, depth Undo/Redo followed by ten repeated rebuilds in each pyramid direction, edge connectivity, RealtimeCSG's own validator, texture defaults, per-face materials, unchanged inputs, tolerance-cell boundaries, global winding reversal, repeated closing vertices, invalid geometry and legacy index limits.
 
 The [prototype reproduction](Evidence/prototype-baseline.txt) found **8 incorrect vertex references and 4 zero-length edges** for a square pyramid. The tetrahedron binding restriction and spline control-point bug have regression coverage.
 
 [Optional-dependency checks](Evidence/without-realtimecsg.txt) separately passed compilation/absence detection and 24 generated-topology checks without RealtimeCSG installed. The setup helper was exercised with and without RealtimeCSG in new empty projects.
+
+A supplemental local check loaded the manually authored `new.unity` scene and verified both pyramid directions through ten rebuilds each, preserving native volume, topology and material assignments. That scene-specific check is separate from the 41 portable tests; the scene is not part of this package.
 
 ## Performance
 
@@ -41,11 +43,11 @@ Warmed medians from seven alternating samples per path, after two warm-ups. Both
 
 | Prism sides | Plane creation (ms) | Direct creation (ms) | Plane creation + rebuild (ms) | Direct creation + rebuild (ms) | Speedup including rebuild |
 |---:|---:|---:|---:|---:|---:|
-| 4 | 0.166 | 0.150 | 0.457 | 0.456 | 1.00× |
-| 16 | 3.780 | 0.408 | 4.260 | 0.858 | 4.96× |
-| 32 | 33.017 | 0.855 | 33.604 | 1.464 | 22.96× |
-| 64 | 318.030 | 1.760 | 315.997 | 2.994 | 105.54× |
-| 128 | 3381.674 | 4.382 | 3422.486 | 6.486 | 527.71× |
+| 4 | 0.202 | 0.156 | 0.720 | 0.533 | 1.35× |
+| 16 | 4.011 | 0.416 | 4.462 | 0.822 | 5.43× |
+| 32 | 36.675 | 0.837 | 37.681 | 1.653 | 22.79× |
+| 64 | 372.132 | 1.835 | 374.591 | 3.181 | 117.78× |
+| 128 | 4299.899 | 4.293 | 4297.244 | 6.765 | 635.19× |
 
 These timings measure one brush's creation, with or without `CSGModelManager.EnsureBuildFinished`. They exclude editor startup, destruction and the full target regeneration/UI workflow. They are specific to this machine and workload, not frame-rate claims. Small brushes show little difference. Convexity checks and RealtimeCSG's legacy validation remain nonlinear; the entire converter is not claimed to be O(n).
 
@@ -59,4 +61,4 @@ The image below was rendered by Unity from actual native-generated RealtimeCSG m
 
 Follow [README.md](README.md) to create a fresh validation project, run the tests and benchmark, and generate the editable demo scene.
 
-Interactive editor authoring/undo workflows, other Unity/RealtimeCSG versions and Windows were not validated. Malformed meshes and T-junctions are rejected rather than repaired. The absolute welding tolerance is `1e-5` per coordinate and planarity/convexity tolerance is `1e-4` in mesh-local units. Texture generation uses RealtimeCSG's default planar mapping, not imported per-vertex UVs.
+Undo/Redo of the depth parameter is covered through Unity's Undo API and explicit target rebuilding. Full interactive authoring workflows, other Unity/RealtimeCSG versions and Windows were not validated. Malformed meshes and T-junctions are rejected rather than repaired. The absolute welding tolerance is `1e-5` per coordinate and planarity/convexity tolerance is `1e-4` in mesh-local units. Texture generation uses RealtimeCSG's default planar mapping, not imported per-vertex UVs.
