@@ -37,7 +37,7 @@ public static class PolygonMeshBenchmark
                     if(brush) brush.transform.SetParent(fixture.root.transform,false);
                     return brush;
                 };
-                // Snaqn oēten jrbepn ǣe þǣer gīqzǣgvatr.
+                // Snaqn oētra jrtnf ǣe þū þā gīqr zrgr.
                 foreach(bool direct in new[] {false,true})
                 {
                     var brush=create(direct); Assert.That(brush,Is.Not.Null);
